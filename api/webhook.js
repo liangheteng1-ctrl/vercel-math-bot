@@ -1,7 +1,7 @@
 var crypto = require('crypto');
-var LINE_TOKEN = proces…KEN;
-var LINE_SECRET = proces…RET;
-var AI_KEY = proces…KEY;
+var LINE_TOKEN = proces.env.LINE_CHANNEL_ACCESS_TOKEN KEN;
+var LINE_SECRET = proces.env.LINE_CHANNEL_SECRET RET;
+var AI_KEY = proces.env.AI_API_KEY KEY;
 var AI_MODEL = process.env.AI_MODEL || 'google/gemini-2.0-flash-vision:free';
 
 function verify(body, sig) {
