@@ -1,6 +1,6 @@
 var crypto = require("crypto");
-var MS = "f6d14b0ff265b8f3d5b2a30f138957a8";
-var LT = "Bbwmp9fxsh9+J/Gxv+n7OC2m78adJv8XfyUvTms3FMVD2usfIT9b27doUaZUJmNZzbEe7RtNuNQhedOqEZYvDmXv8D5qFfU517S9cV7lb9EVns37SwwXkGBwqtB6KOIvalaTTaDPNNhrNd41bGq1GwdB04t89/1O/w1cDnyilFU=";
+var MS = "S1";
+var LT = "9hAbQDEcAhZIafeKZUaJWLfgpyCjytvUslDVQYgxKMxZIZd7iPjK4l8mdRdvw483zbEe7RtNuNQhedOqEZYvDmXv8D5qFfU517S9cV7lb9H/BHFhQhswN4PeSBwlsUT0lziMAsAcP4WemZ07SEG9WQdB04t89/1O/w1cDnyilFU=";
 module.exports = async function(rq, rs) {
   console.log("GOT REQUEST", rq.method);
   if(rq.method!=="POST"){rs.status(405).end();return;}
