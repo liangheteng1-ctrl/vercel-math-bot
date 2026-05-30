@@ -1,7 +1,7 @@
 var crypto = require('crypto');
-var LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-var LINE_SECRET = process.env.LINE_CHANNEL_SECRET;
-var AI_KEY = process.env.AI_API_KEY;
+var LINE_TOKEN = proces…KEN;
+var LINE_SECRET = proces…RET;
+var AI_KEY = proces…KEY;
 var AI_MODEL = process.env.AI_MODEL || 'google/gemini-2.0-flash-vision:free';
 
 function verify(body, sig) {
@@ -13,17 +13,16 @@ async function reply(token, text) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + LINE_TOKEN
+      Authorization: '***' + LINE_TOKEN
     },
     body: JSON.stringify({ replyToken: token, messages: [{ type: 'text', text: text }] })
   });
 }
 
 async function getImg(id) {
-  var r = await fetch(
-    'https://api-data.line.me/v2/bot/message/' + id + '/content',
-    { headers: { Authorization: 'Bearer ' + LINE_TOKEN } }
-  );
+  var r = await fetch('https://api-data.line.me/v2/bot/message/' + id + '/content', {
+    headers: { Authorization: '***' + LINE_TOKEN }
+  });
   var b = Buffer.from(await r.arrayBuffer());
   return {
     b64: b.toString('base64'),
@@ -40,7 +39,7 @@ async function askAI(messages) {
       signal: c.signal,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + AI_KEY,
+        Authorization: '***' + AI_KEY,
         'HTTP-Referer': 'https://vercel-math-bot.vercel.app',
         'X-Title': 'MathBot'
       },
@@ -52,8 +51,8 @@ async function askAI(messages) {
       })
     });
     var d = await r.json();
-    var text = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-    return (text && text.trim()) || 'ขออภัย เกิดข้อผิดพลาดครับ';
+    var txt = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    return txt ? txt.trim() : 'ขออภัย เกิดข้อผิดพลาดครับ';
   } finally {
     clearTimeout(t);
   }
@@ -66,9 +65,9 @@ module.exports = async function(req, res) {
   }
 
   try {
-    var rawBody = JSON.stringify(req.body);
+    var raw = JSON.stringify(req.body);
     var sig = req.headers['x-line-signature'];
-    if (!sig || !verify(rawBody, sig)) {
+    if (!sig || !verify(raw, sig)) {
       res.status(401).end();
       return;
     }
@@ -99,10 +98,7 @@ module.exports = async function(req, res) {
               role: 'user',
               content: [
                 { type: 'text', text: 'ช่วยแก้โจทย์คณิตศาสตร์ในรูปนี้ทีละขั้นตอน' },
-                {
-                  type: 'image_url',
-                  image_url: { url: 'data:' + img.mime + ';base64,' + img.b64 }
-                }
+                { type: 'image_url', image_url: { url: 'data:' + img.mime + ';base64,' + img.b64 } }
               ]
             }
           ];
@@ -113,7 +109,7 @@ module.exports = async function(req, res) {
         }
       }
     } catch (err) {
-      // ignore errors for individual events
+      // skip errors for single events
     }
   }
 
