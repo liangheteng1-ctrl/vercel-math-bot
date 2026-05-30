@@ -10,54 +10,59 @@ function verify(body, sig) {
 
 async function reply(token, text) {
   await fetch('https://api.line.me/v2/bot/message/reply', {
-    method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${LINE_TOKEN}`},
-    body: JSON.stringify({replyToken:token,messages:[{type:'text',text}]})
+    method:'POST', headers:{'Content-Type':'application/json',Authorization:'***' + LINE_TOKEN},
+    body: JSON.stringify({replyToken:token,messages:[{type:'text',text:text}]})
   });
 }
 
 async function getImg(id) {
-  const r = await fetch(`https://api-data.line.me/v2/bot/message/${id}/content`, {headers:{Authorization:`Bearer ${LINE_TOKEN}`}});
-  const b = Buffer.from(await r.arrayBuffer());
+  var r = await fetch('https://api-data.line.me/v2/bot/message/' + id + '/content', {headers:{Authorization:'***' + LINE_TOKEN}});
+  var b = Buffer.from(await r.arrayBuffer());
   return { b64: b.toString('base64'), mime: b[0]===0xFF?'image/jpeg':'image/png' };
 }
 
 async function askAI(messages) {
-  const c = new AbortController();
-  const t = setTimeout(()=>c.abort(), 9000);
+  var c = new AbortController();
+  var t = setTimeout(function(){c.abort()}, 9000);
   try {
-    const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    var r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method:'POST', signal:c.signal,
-      headers:{'Content-Type':'application/json',Authorization:`Bearer ${AI_KEY}`,...AI_KEY.startsWith('sk-or-')?{'HTTP-Referer':'https://vercel-math-bot.vercel.app','X-Title':'MathBot'}:{}},
-      body: JSON.stringify({model:AI_MODEL,messages,max_tokens:1024,temperature:0.3})
+      headers:{'Content-Type':'application/json',Authorization:'***' + AI_KEY,'HTTP-Referer':'https://vercel-math-bot.vercel.app','X-Title':'MathBot'},
+      body: JSON.stringify({model:AI_MODEL,messages:messages,max_tokens:1024,temperature:0.3})
     });
-    const d = await r.json();
-    return d.choices?.[0]?.message?.content?.trim() || 'ขออภัย เกิดข้อผิดพลาดครับ 🙏';
+    var d = await r.json();
+    return d.choices?.[0]?.message?.content?.trim() || 'ขออภัย เกิดข้อผิดพลาดครับ';
   } finally { clearTimeout(t); }
 }
 
-module.exports = async (req, res) => {
+module.exports = async function(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  if (!verify(JSON.stringify(req.body), req.headers['x-line-signature'])) return res.status(401).end();
+  try {
+    if (!verify(JSON.stringify(req.body), req.headers['x-line-signature'])) return res.status(401).end();
+  } catch(e) { return res.status(200).end(); }
 
-  for (const e of req.body.events) {
+  for (var i = 0; i < req.body.events.length; i++) {
+    var e = req.body.events[i];
     if (e.type === 'follow') {
-      await reply(e.replyToken, '🎉 สวัสดีจ้า! ติวเตอร์คณิตศาสตร์มาแล้ว ถามโจทย์มาได้เลยครับ 📐');
+      await reply(e.replyToken, 'สวัสดีจ้า! ถามโจทย์คณิตศาสตร์มาได้เลยครับ');
       continue;
     }
     if (e.type !== 'message') continue;
 
-    let msgs = [{ role:'system', content:'คุณคือติวเตอร์คณิตศาสตร์ ตอบเป็นภาษาไทย อธิบายทีละขั้นตอน ใช้สัญลักษณ์คณิตศาสตร์ ² √ π Σ ∫ ± ≤ ≥' }];
+    var msgs = [{ role:'system', content:'คุณคือติวเตอร์คณิตศาสตร์ ตอบเป็นภาษาไทย อธิบายทีละขั้นตอน ใช้สัญลักษณ์คณิตศาสตร์' }];
     if (e.message.type === 'image') {
       try {
-        const img = await getImg(e.message.id);
-        msgs.push({ role:'user', content:[{type:'text',text:'ช่วยแก้โจทย์คณิตศาสตร์ในรูปนี้'},{type:'image_url',image_url:{url:`data:${img.mime};base64,${img.b64}`}}] });
-      } catch { await reply(e.replyToken, '😅 อ่านรูปไม่สำเร็จ ลองถ่ายใหม่หรือพิมพ์โจทย์แทนนะครับ'); continue; }
+        var img = await getImg(e.message.id);
+        msgs.push({ role:'user', content:[{type:'text',text:'ช่วยแก้โจทย์คณิตศาสตร์ในรูปนี้'},{type:'image_url',image_url:{url:'data:'+img.mime+';base64,'+img.b64}}] });
+      } catch(err) { await reply(e.replyToken, 'อ่านรูปไม่สำเร็จ'); continue; }
     } else if (e.message.type === 'text') {
       msgs.push({ role:'user', content: e.message.text });
-    } else { await reply(e.replyToken, '😊 ส่งได้แค่ข้อความหรือรูปภาพนะครับ'); continue; }
+    } else { await reply(e.replyToken, 'ส่งได้แค่ข้อความหรือรูปภาพนะครับ'); continue; }
 
-    const ans = await askAI(msgs);
-    await reply(e.replyToken, ans);
+    try {
+      var ans = await askAI(msgs);
+      await reply(e.replyToken, ans);
+    } catch(err) { await reply(e.replyToken, 'ขออภัย เกิดข้อผิดพลาด'); }
   }
   res.status(200).end();
 };
