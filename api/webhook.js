@@ -1,7 +1,7 @@
 var crypto = require('crypto');
-var LINE_TOKEN = proces.env.LINE_CHANNEL_ACCESS_TOKEN KEN;
-var LINE_SECRET = proces.env.LINE_CHANNEL_SECRET RET;
-var AI_KEY = proces.env.AI_API_KEY KEY;
+var LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+var LINE_SECRET = process.env.LINE_CHANNEL_SECRET;
+var AI_KEY = process.env.AI_API_KEY;
 var AI_MODEL = process.env.AI_MODEL || 'google/gemini-2.0-flash-vision:free';
 
 function verify(body, sig) {
@@ -17,6 +17,17 @@ async function reply(token, text) {
     },
     body: JSON.stringify({ replyToken: token, messages: [{ type: 'text', text: text }] })
   });
+}
+
+async function getImg(id) {
+  var r = await fetch('https://api-data.line.me/v2/bot/message/' + id + '/content', {
+    headers: { Authorization: '***' + LINE_TOKEN }
+  });
+  var b = Buffer.from(await r.arrayBuffer());
+  return {
+    b64: b.toString('base64'),
+    mime: b[0] === 0xFF ? 'image/jpeg' : 'image/png'
+  };
 }
 
 async function askAI(messages) {
@@ -35,8 +46,8 @@ async function askAI(messages) {
       body: JSON.stringify({ model: AI_MODEL, messages: messages, max_tokens: 1024, temperature: 0.3 })
     });
     var d = await r.json();
-    var txt = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-    return txt ? txt.trim() : 'Sorry, error. Try again.';
+    var t2 = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    return t2 ? t2.trim() : 'Sorry, error. Try again.';
   } finally {
     clearTimeout(t);
   }
@@ -65,6 +76,20 @@ module.exports = async function(req, res) {
             { role: 'system', content: 'You are a math tutor. Answer in Thai. Explain step by step. Use math symbols.' }
           ];
           msgs.push({ role: 'user', content: e.message.text });
+          var ans = await askAI(msgs);
+          await reply(e.replyToken, ans);
+        } else if (e.message.type === 'image') {
+          var img = await getImg(e.message.id);
+          var msgs = [
+            { role: 'system', content: 'You are a math tutor. Answer in Thai. Explain step by step. Use math symbols.' },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Solve this math problem step by step.' },
+                { type: 'image_url', image_url: { url: 'data:' + img.mime + ';base64,' + img.b64 } }
+              ]
+            }
+          ];
           var ans = await askAI(msgs);
           await reply(e.replyToken, ans);
         }
