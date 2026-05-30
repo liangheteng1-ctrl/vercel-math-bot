@@ -1,100 +1,10 @@
-var crypto = require('crypto');
-var LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-var LINE_SECRET = process.env.LINE_CHANNEL_SECRET;
-var AI_KEY = process.env.AI_API_KEY;
-var AI_MODEL = process.env.AI_MODEL || 'google/gemini-2.0-flash-vision:free';
-
-function verify(body, sig) {
-  return crypto.createHmac('sha256', LINE_SECRET).update(body).digest('base64') === sig;
-}
-
-async function reply(token, text) {
-  await fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: '***' + LINE_TOKEN
-    },
-    body: JSON.stringify({ replyToken: token, messages: [{ type: 'text', text: text }] })
-  });
-}
-
-async function getImg(id) {
-  var r = await fetch('https://api-data.line.me/v2/bot/message/' + id + '/content', {
-    headers: { Authorization: '***' + LINE_TOKEN }
-  });
-  var b = Buffer.from(await r.arrayBuffer());
-  return {
-    b64: b.toString('base64'),
-    mime: b[0] === 0xFF ? 'image/jpeg' : 'image/png'
-  };
-}
-
-async function askAI(messages) {
-  var c = new AbortController();
-  var t = setTimeout(function(){ c.abort(); }, 9000);
-  try {
-    var r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      signal: c.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: '***' + AI_KEY,
-        'HTTP-Referer': 'https://vercel-math-bot.vercel.app',
-        'X-Title': 'MathBot'
-      },
-      body: JSON.stringify({ model: AI_MODEL, messages: messages, max_tokens: 1024, temperature: 0.3 })
-    });
-    var d = await r.json();
-    var t2 = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-    return t2 ? t2.trim() : 'Sorry, error. Try again.';
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-module.exports = async function(req, res) {
-  if (req.method !== 'POST') { res.status(405).end(); return; }
-
-  try {
-    var raw = JSON.stringify(req.body);
-    var sig = req.headers['x-line-signature'];
-    if (!sig || !verify(raw, sig)) { res.status(401).end(); return; }
-  } catch(e) {
-    res.status(200).end(); return;
-  }
-
-  var events = req.body.events || [];
-  for (var i = 0; i < events.length; i++) {
-    var e = events[i];
-    try {
-      if (e.type === 'follow') {
-        await reply(e.replyToken, 'Sawasdee! Ask me any math question.');
-      } else if (e.type === 'message') {
-        if (e.message.type === 'text') {
-          var msgs = [
-            { role: 'system', content: 'You are a math tutor. Answer in Thai. Explain step by step. Use math symbols.' }
-          ];
-          msgs.push({ role: 'user', content: e.message.text });
-          var ans = await askAI(msgs);
-          await reply(e.replyToken, ans);
-        } else if (e.message.type === 'image') {
-          var img = await getImg(e.message.id);
-          var msgs = [
-            { role: 'system', content: 'You are a math tutor. Answer in Thai. Explain step by step. Use math symbols.' },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Solve this math problem step by step.' },
-                { type: 'image_url', image_url: { url: 'data:' + img.mime + ';base64,' + img.b64 } }
-              ]
-            }
-          ];
-          var ans = await askAI(msgs);
-          await reply(e.replyToken, ans);
-        }
-      }
-    } catch(err) {}
-  }
-  res.status(200).end();
+var crypto = require("crypto");
+var MS = "f6d14b0ff265b8f3d5b2a30f138957a8";
+var LT = "geuJPKOIAK2vgcIhrNLXDmYXe97a/mUqUXjY4EGSnH1i/K5W2qi+VyH5R4aYgWNqzbEe7RtNuNQhedOqEZYvDmXv8D5qFfU517S9cV7lb9FC3zkSEwMIkfDtetPuxa46K2v6/WfzJN6SbPgZQOOjvgdB04t89/1O/w1cDnyilFU=";
+module.exports = async function(rq, rs) {
+  if(rq.method!=="POST"){rs.status(405).end();return;}
+  try{var raw=JSON.stringify(rq.body);var sig=rq.headers["x-line-signature"];if(!sig||crypto.createHmac("sha256",MS).update(raw).digest("base64")!==sig){rs.status(401).end();return;}}catch(e){rs.status(200).end();return;}
+  var ev=rq.body.events||[];
+  for(var i=0;i<ev.length;i++){var e=ev[i];if(e.type==="message"&&e.message&&e.message.type==="text"){await fetch("https://api.line.me/v2/bot/message/reply",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"***"+LT},body:JSON.stringify({replyToken:e.replyToken,messages:[{type:"text",text:"hello! i see: "+e.message.text}]})});}}
+  rs.status(200).end();
 };
