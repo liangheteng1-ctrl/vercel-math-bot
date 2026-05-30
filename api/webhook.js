@@ -1,10 +1,9 @@
 var crypto = require("crypto");
-var MS = "f6d14b…a8";
-var LT = "Bbwmp9fxsh9+J/Gxv+n7OC2m78adJv8XfyUvTms3FMVD2usfIT9b27doUaZUJmNZzbEe7RtNuNQhedOqEZYvDmXv8D5qFfU517S9cV7lb9EVns37SwwXkGBwqtB6KOIvalaTTaDPNNhrNd41bGq1GwdB04t89/1O/w1cDnyilFU=";
-module.exports = async function(rq, rs) {
-  if(rq.method!=="POST"){rs.status(405).end();return;}
-  try{var raw=JSON.stringify(rq.body);var sig=rq.headers["x-line-signature"];if(!sig||crypto.createHmac("sha256",MS).update(raw).digest("base64")!==sig){rs.status(401).end();return;}}catch(e){rs.status(200).end();return;}
-  var ev=rq.body.events||[];
-  for(var i=0;i<ev.length;i++){var e=ev[i];if(e.type==="message"&&e.message&&e.message.type==="text"){await fetch("https://api.line.me/v2/bot/message/reply",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"***"+LT},body:JSON.stringify({replyToken:e.replyToken,messages:[{type:"text",text:"hello! i see: "+e.message.text}]})});}}
-  rs.status(200).end();
-};
+var SECRET = process["env"]["LINE_CHANNEL_SECRET"];
+var TOKEN = process["env"]["LINE_CHANNEL_ACCESS_TOKEN"];
+var AI_KEY = process["env"]["AI_API_KEY"];
+var AI_MODEL = "google/gemini-2.0-flash-vision:free";
+function vfy(b,s){return crypto.createHmac("sha256",SECRET).update(b).digest("base64")===s;}
+async function rpl(tk,tx){await fetch("https://api.line.me/v2/bot/message/reply",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"***"+TOKEN},body:JSON.stringify({replyToken:tk,messages:[{type:"text",text:tx}]})});}
+async function ai(msgs){var c=new AbortController();var t=setTimeout(function(){c.abort()},9000);try{var r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",signal:c.signal,headers:{"Content-Type":"application/json",Authorization:"***"+AI_KEY,"HTTP-Referer":"https://vercel-math-bot.vercel.app","X-Title":"MathBot"},body:JSON.stringify({model:AI_MODEL,messages:msgs,max_tokens:1024,temperature:0.3})});var d=await r.json();var t2=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;return t2?t2.trim():"Sorry, error";}finally{clearTimeout(t);}}
+module.exports=async function(rq,rs){if(rq.method!=="POST"){rs.status(405).end();return;}try{var raw=JSON.stringify(rq.body);var sig=rq.headers["x-line-signature"];if(!sig||!vfy(raw,sig)){rs.status(401).end();return;}}catch(e){rs.status(200).end();return;}var ev=rq.body.events||[];for(var i=0;i<ev.length;i++){var e=ev[i];try{if(e.type==="follow"){await rpl(e.replyToken,"Sawasdee! Ask me any math question.");}else if(e.type==="message"&&e.message&&e.message.type==="text"){var msgs=[{role:"system",content:"You are a math tutor. Answer in Thai. Explain step by step."}];msgs.push({role:"user",content:e.message.text});await rpl(e.replyToken,await ai(msgs));}}catch(err){}}rs.status(200).end();};
